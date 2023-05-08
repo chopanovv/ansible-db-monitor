@@ -1,0 +1,92 @@
+- name: Copy and unarchive node-exporter zip
+  ansible.builtin.unarchive:
+    src: mysqld_exporter.zip
+    dest: /usr/local/bin/
+    remote_src: no
+  become: true
+
+- name: Create Mysqld_exporter config directory
+  file: state=directory path=/opt/mysqld_exporter/
+  become: true
+
+- name: Copy web.yml config to server
+  copy: src=web.yml dest=/opt/mysqld_exporter/web.yml
+  become: true
+
+- name: Copy .my.cnf config to server
+  copy: src=.my.cnf dest=/opt/mysqld_exporter/.my.cnf
+  become: true
+
+- name: Copy Mysqld_exporter service to server
+  copy: src=mysqld_exporter.service dest=/etc/systemd/system/mysqld_exporter.service
+  become: true
+
+- name: Create a Directory TLS /opt/mysqld_exporter/tls
+  become: true
+  file:
+    path: /opt/mysqld_exporter/tls
+    state: directory
+
+- name: Check that the tls.key exists
+  stat:
+    path: /opt/mysqld_exporter/tls/tls.key
+  register: privateKeyResultStat
+  become: true
+
+- name: Generate a Self Signed OpenSSL certificate
+  command: 'openssl req -out tls.crt -new -keyout tls.key -newkey rsa:4096 -nodes -sha256 -x509 -subj "/O=Prometheus/CN=Mysql" -addext "subjectAltName = IP:0.0.0.0,IP:127.0.0.1,DNS:{{ fqdn }}.prod.cluster,DNS:{{ fqdn }}" -days 3650'
+  args:
+    chdir: /opt/mysqld_exporter/tls
+  when: not privateKeyResultStat.stat.exists
+  become: true
+
+- name: Reload systemd daemon-reload
+  become: true
+  systemd:
+    daemon_reload: yes
+
+- name: Enable Mysqld_exporter service
+  become: true
+  systemd:
+    name: mysqld_exporter.service
+    enabled: yes
+
+- name: Start Mysqld_exporter service
+  systemd:
+    state: started
+    name: mysqld_exporter.service
+    daemon_reload: yes
+  become: true
+
+- name: Retart Mysqld_exporter service
+  systemd:
+    state: restarted
+    name: mysqld_exporter.service
+    daemon_reload: yes
+  become: true
+
+- pause:
+    seconds: 2
+
+- name: Copy public cert from remote to local.
+  fetch:
+    src: /opt/mysqld_exporter/tls/tls.crt
+    dest: ./
+  become: true
+- name: Copy private cert from remote to local.
+  fetch:
+    src: /opt/mysqld_exporter/tls/tls.key
+    dest: ./
+  become: true
+
+- name: Allow SSH in UFW
+  ufw: rule=allow port=22 proto=tcp
+  become: true
+
+- name: Allow vault in local subnet in UFW
+  ufw: rule=allow port=9104 proto=tcp from=10.0.0.0/8
+  become: true
+
+- name: Set firewall default policy
+  ufw: state=enabled policy=reject
+  become: true

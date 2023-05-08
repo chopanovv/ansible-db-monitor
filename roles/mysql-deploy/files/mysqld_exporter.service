@@ -1,0 +1,16 @@
+[Unit]
+Description=MySQL Exporter Service
+Wants=network.target
+After=network.target
+
+[Service]
+User=root
+Group=root
+WorkingDirectory=/opt/mysqld_exporter
+Environment="DATA_SOURCE_NAME=root:password@unix(/var/run/mysqd/mysqld.sock)"
+Type=simple
+ExecStart=/usr/local/bin/mysqld_exporter --web.listen-address=:9104 --web.telemetry-path=/metrics --config.my-cnf=.my.cnf --web.config.file=web.yml
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

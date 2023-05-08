@@ -1,0 +1,10 @@
+postgres:
+  hosts:
+    server:
+      ansible_host: ip
+      fqdn: postgres
+mysql:
+  hosts:
+    server:
+      ansible_host: ip
+      fqdn: mysql

@@ -1,0 +1,7 @@
+- hosts: postgres
+  roles:
+  - role: postgres-deploy
+  
+- hosts: mysql
+  roles:
+  - role: mysql-deploy
